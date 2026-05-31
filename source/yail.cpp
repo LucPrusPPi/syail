@@ -4,6 +4,7 @@
 #include <Windows.h>
 #include <TlHelp32.h>
 #include <winternl.h>
+#include <algorithm>
 #include <array>
 #include <format>
 #include <fstream>
@@ -23,6 +24,41 @@ namespace
             return p + 5 + rel;
         }
         return p;
+    }
+    [[nodiscard]]
+    std::size_t shellcode_section_size(const std::uint8_t* shell_code_start)
+    {
+        MEMORY_BASIC_INFORMATION memory_info{};
+        if (!VirtualQuery(shell_code_start, &memory_info, sizeof(memory_info)))
+            return 0;
+
+        const auto* image_base = static_cast<const std::uint8_t*>(memory_info.AllocationBase);
+        const auto* dos_headers = reinterpret_cast<const IMAGE_DOS_HEADER*>(image_base);
+        if (dos_headers->e_magic != IMAGE_DOS_SIGNATURE)
+            return 0;
+
+        const auto* nt_headers = reinterpret_cast<const IMAGE_NT_HEADERS*>(image_base + dos_headers->e_lfanew);
+        if (nt_headers->Signature != IMAGE_NT_SIGNATURE)
+            return 0;
+
+        constexpr std::array<std::uint8_t, IMAGE_SIZEOF_SHORT_NAME> expected_name{'.', 'y', 'a', 'i', 'l'};
+        const auto shell_code_rva =
+                reinterpret_cast<std::uintptr_t>(shell_code_start) - reinterpret_cast<std::uintptr_t>(image_base);
+        const auto* section = IMAGE_FIRST_SECTION(nt_headers);
+        for (std::uint16_t i = 0; i < nt_headers->FileHeader.NumberOfSections; i++, section++)
+        {
+            if (!std::equal(expected_name.begin(), expected_name.end(), section->Name))
+                continue;
+
+            const auto section_start = static_cast<std::size_t>(section->VirtualAddress);
+            const auto section_size = static_cast<std::size_t>(section->Misc.VirtualSize);
+            if (shell_code_rva < section_start || shell_code_rva - section_start >= section_size)
+                return 0;
+
+            return section_size - (shell_code_rva - section_start);
+        }
+
+        return 0;
     }
     struct LdrDataTableEntryFull final
     {
@@ -117,8 +153,8 @@ namespace
 #pragma optimize("ts", on)
 #pragma strict_gs_check(push, off)
 #endif
-    // Ordered COFF subsections keep the end marker adjacent after linking.
-    __declspec(safebuffers) __declspec(noinline) __declspec(code_seg(".text$yail_shellcode$a")) DWORD WINAPI
+    // A dedicated PE section keeps sizing independent from consumer linker ordering.
+    __declspec(safebuffers) __declspec(noinline) __declspec(code_seg(".yail$a")) DWORD WINAPI
     remote_shellcode(const RemoteLoaderData* data)
     {
         auto* base = data->image_base;
@@ -340,8 +376,9 @@ namespace
 
         return 0;
     }
-    __declspec(noinline) __declspec(code_seg(".text$yail_shellcode$z")) void remote_shellcode_end()
+    __declspec(noinline) __declspec(code_seg(".yail$z")) std::uint64_t remote_shellcode_end()
     {
+        return 0x5941494C5348454Cull;
     }
 
 #ifdef _MSC_VER
@@ -497,16 +534,27 @@ namespace yail
 
         // Prepare shellcode page: [RemoteLoaderData | padding | shellcode bytes]
         const auto* shell_code_start = resolve_ilt(reinterpret_cast<void*>(&remote_shellcode));
+        const auto* shell_code_end = resolve_ilt(reinterpret_cast<void*>(&remote_shellcode_end));
         const auto shell_code_start_address = reinterpret_cast<std::uintptr_t>(shell_code_start);
-        const auto shell_code_end_address =
-                reinterpret_cast<std::uintptr_t>(resolve_ilt(reinterpret_cast<void*>(&remote_shellcode_end)));
-        if (shell_code_end_address <= shell_code_start_address)
+        const auto shell_code_end_address = reinterpret_cast<std::uintptr_t>(shell_code_end);
+        const auto section_size = shellcode_section_size(shell_code_start);
+
+        std::size_t size_of_shell_code = 0;
+        if (shell_code_end_address > shell_code_start_address)
+        {
+            const auto marker_size = shell_code_end_address - shell_code_start_address;
+            if (!section_size || marker_size <= section_size)
+                size_of_shell_code = marker_size;
+        }
+        if (!size_of_shell_code)
+            size_of_shell_code = section_size;
+
+        if (!size_of_shell_code)
         {
             VirtualFreeEx(process_handle, remote_image, 0, MEM_RELEASE);
             CloseHandle(process_handle);
-            return std::unexpected("Invalid shellcode section layout");
+            return std::unexpected("Failed to determine shellcode size");
         }
-        const auto size_of_shell_code = shell_code_end_address - shell_code_start_address;
 
         constexpr std::size_t data_aligned = (sizeof(RemoteLoaderData) + 0xF) & ~0xF;
         const std::size_t total_shellcode = data_aligned + size_of_shell_code;
