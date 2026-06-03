@@ -323,14 +323,14 @@ namespace yail::detail
                                                      section_data.data(), section_data.size()); !read)
                 return std::unexpected(read.error());
 
-            std::span section_bytes{reinterpret_cast<std::byte*>(section_data.data()), section_data.size()};
+            auto* const section_begin = reinterpret_cast<std::byte*>(section_data.data());
+            auto* const section_end = section_begin + section_data.size();
             for (const auto signature : signatures)
             {
-                const auto match = omath::PatternScanner::scan_for_pattern(section_bytes.begin(), section_bytes.end(),
-                                                                           signature);
-                if (match != section_bytes.end())
+                const auto match = omath::PatternScanner::scan_for_pattern(section_begin, section_end, signature);
+                if (match != section_end)
                     return *module_base + section->VirtualAddress
-                         + static_cast<std::uint32_t>(match - section_bytes.begin());
+                         + static_cast<std::uint32_t>(match - section_begin);
             }
 
             return std::unexpected(std::format("Failed to find {} in WOW64 ntdll.dll", function_name));
