@@ -159,7 +159,7 @@ On modern x86 ntdll, both functions use `__fastcall` (args in `ECX`/`EDX`) despi
 The shellcode implementation is kept as a disabled reference block in `source/native_loader.cpp`. After changing it, temporarily enable the block, rebuild both `loader` targets, refresh the embedded loaders, then disable the block again:
 
 ```bash
-python tools/generate_shellcode.py cmake-build/build/windows-release-vcpkg/loader.exe cmake-build/build/windows-release-vcpkg-x86/loader.exe source/shellcode.hpp
+python tools/generate_shellcode.py cmake-build/build/windows-release-vcpkg/loader.exe cmake-build/build/windows-release-vcpkg-x86/loader.exe include/yail/detail/shellcode.hpp
 ```
 
 ## License

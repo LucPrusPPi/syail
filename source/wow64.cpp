@@ -1,8 +1,6 @@
-#include "wow64.hpp"
+#include <yail/detail/wow64.hpp>
 
 #ifdef _WIN64
-#include "process.hpp"
-#include "shellcode.hpp"
 #include <Windows.h>
 #include <TlHelp32.h>
 #include <algorithm>
@@ -16,6 +14,8 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include <yail/detail/process.hpp>
+#include <yail/detail/shellcode.hpp>
 #include <omath/utility/pattern_scan.hpp>
 
 namespace yail::detail

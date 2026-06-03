@@ -12,12 +12,12 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include <yail/detail/native_loader.hpp>
+#include <yail/detail/pe.hpp>
+#include <yail/detail/process.hpp>
+#include <yail/detail/shellcode.hpp>
+#include <yail/detail/wow64.hpp>
 #include <yail/yail.hpp>
-#include "native_loader.hpp"
-#include "pe.hpp"
-#include "process.hpp"
-#include "shellcode.hpp"
-#include "wow64.hpp"
 
 namespace yail
 {

@@ -1,4 +1,4 @@
-#include "native_loader.hpp"
+#include <yail/detail/native_loader.hpp>
 #include <winternl.h>
 #include <array>
 #include <omath/utility/pe_pattern_scan.hpp>
@@ -41,7 +41,7 @@ namespace yail::detail
             return reinterpret_cast<void*>(function);
         }
 
-        // Disabled reference implementation used to regenerate source/shellcode.hpp.
+        // Disabled reference implementation used to regenerate include/yail/detail/shellcode.hpp.
         // Temporarily change this to #if 1, rebuild both architectures, run
         // tools/generate_shellcode.py, then restore #if 0.
 #if 0
