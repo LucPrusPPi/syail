@@ -152,11 +152,11 @@ The library locates two non-exported ntdll routines by byte signatures:
 - `LdrpHandleTlsData` — used to register static TLS for the mapped image
 - `RtlInsertInvertedFunctionTable` — used to make the image's exception/SEH handlers visible to the OS exception dispatcher
 
-Patterns are versioned per architecture and have been verified on **Windows 11 24H2**. Older Windows builds may require updated signatures — locate the function in WinDbg (`x ntdll!LdrpHandleTlsData`, `uf <addr>`), take ~16 unique leading bytes, and add the wildcarded pattern to the corresponding `find_*` array in `source/yail.cpp`.
+Patterns are versioned per architecture and have been verified on **Windows 11 24H2**. Older Windows builds may require updated signatures — locate the function in WinDbg (`x ntdll!LdrpHandleTlsData`, `uf <addr>`), take ~16 unique leading bytes, and add the wildcarded pattern to the corresponding signature array in `source/native_loader.cpp` or `source/wow64.cpp`.
 
 On modern x86 ntdll, both functions use `__fastcall` (args in `ECX`/`EDX`) despite their legacy `_Name@N` symbol decoration — the typedef and call sites in the source reflect that. If you target an older x86 Windows where these are still `__stdcall`, you'll need to swap the typedef to `NTAPI*`.
 
-The shellcode implementation is kept as a disabled reference block in `source/yail.cpp`. After changing it, temporarily enable the block, rebuild both `loader` targets, refresh the embedded loaders, then disable the block again:
+The shellcode implementation is kept as a disabled reference block in `source/native_loader.cpp`. After changing it, temporarily enable the block, rebuild both `loader` targets, refresh the embedded loaders, then disable the block again:
 
 ```bash
 python tools/generate_shellcode.py cmake-build/build/windows-release-vcpkg/loader.exe cmake-build/build/windows-release-vcpkg-x86/loader.exe source/shellcode.hpp
