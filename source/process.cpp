@@ -74,7 +74,7 @@ namespace yail::detail
             return std::unexpected(std::format("Target process machine 0x{:04x} does not match PE machine 0x{:04x}",
                                                target_machine, expected_machine));
 #else
-        if (expected_machine != IMAGE_FILE_MACHINE_I386 || target_is_wow64 != self_is_wow64)
+       if (expected_machine != IMAGE_FILE_MACHINE_I386 || target_is_wow64 != self_is_wow64)
             return std::unexpected("Target process architecture does not match the x86 injector");
 #endif
 

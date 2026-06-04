@@ -21,8 +21,8 @@
 
 namespace yail
 {
-    std::expected<std::uintptr_t, std::string> manual_map_injection_from_raw(const std::span<const std::uint8_t>& raw_dll,
-                                                                            const std::uintptr_t process_id)
+    std::expected<std::uintptr_t, std::string>
+    manual_map_injection_from_raw(const std::span<const std::uint8_t>& raw_dll, const std::uintptr_t process_id)
     {
         const auto pe_machine = detail::get_pe_machine(raw_dll);
         if (!pe_machine)
@@ -45,8 +45,8 @@ namespace yail
         // Open target process
         // ReSharper disable once CppLocalVariableMayBeConst
         HANDLE process_handle = OpenProcess(PROCESS_VM_OPERATION | PROCESS_VM_WRITE | PROCESS_VM_READ
-                                                     | PROCESS_CREATE_THREAD | PROCESS_QUERY_INFORMATION,
-                                             FALSE, static_cast<DWORD>(process_id));
+                                                    | PROCESS_CREATE_THREAD | PROCESS_QUERY_INFORMATION,
+                                            FALSE, static_cast<DWORD>(process_id));
 
         if (!process_handle)
             return std::unexpected(std::format("Failed to open target process (error {})", GetLastError()));
@@ -103,9 +103,8 @@ namespace yail
         constexpr std::size_t data_aligned = (sizeof(detail::RemoteLoaderData) + 0xF) & ~0xF;
         const std::size_t total_shellcode = data_aligned + native_remote_shellcode.size();
 
-        auto* remote_shellcode = static_cast<std::uint8_t*>(
-                VirtualAllocEx(process_handle, nullptr, total_shellcode, MEM_COMMIT | MEM_RESERVE,
-                               PAGE_EXECUTE_READWRITE));
+        auto* remote_shellcode = static_cast<std::uint8_t*>(VirtualAllocEx(
+                process_handle, nullptr, total_shellcode, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE));
 
         if (!remote_shellcode)
         {
@@ -153,7 +152,8 @@ namespace yail
         // Build local shellcode page
         std::vector<std::uint8_t> shell_code_page(total_shellcode, 0);
         std::copy_n(reinterpret_cast<const std::uint8_t*>(&loader_data), sizeof(loader_data), shell_code_page.data());
-        std::copy(native_remote_shellcode.begin(), native_remote_shellcode.end(), shell_code_page.data() + data_aligned);
+        std::ranges::copy(native_remote_shellcode,
+                  shell_code_page.data() + data_aligned);
 
         // Write shellcode page to target
         if (!WriteProcessMemory(process_handle, remote_shellcode, shell_code_page.data(), total_shellcode, nullptr))
@@ -195,8 +195,8 @@ namespace yail
         return reinterpret_cast<std::uintptr_t>(remote_image);
     }
 
-    std::expected<std::uintptr_t, std::string> manual_map_injection_from_raw(const std::span<const std::uint8_t>& raw_dll,
-                                                                            const std::string_view& process_name)
+    std::expected<std::uintptr_t, std::string>
+    manual_map_injection_from_raw(const std::span<const std::uint8_t>& raw_dll, const std::string_view& process_name)
     {
         const auto pid = detail::get_process_id_by_name(process_name);
 
@@ -207,7 +207,7 @@ namespace yail
     }
 
     std::expected<std::uintptr_t, std::string> manual_map_injection_from_file(const std::string_view& dll_path,
-                                                                             const std::uintptr_t process_id)
+                                                                              const std::uintptr_t process_id)
     {
         if (!std::filesystem::exists(dll_path))
             return std::unexpected("File does not exists.");
@@ -222,7 +222,7 @@ namespace yail
     }
 
     std::expected<std::uintptr_t, std::string> manual_map_injection_from_file(const std::string_view& dll_path,
-                                                                             const std::string_view& process_name)
+                                                                              const std::string_view& process_name)
     {
         std::vector<std::uint8_t> data(static_cast<std::size_t>(std::filesystem::file_size(dll_path)), 0);
         std::ifstream file(std::filesystem::path{dll_path}, std::ios::binary);

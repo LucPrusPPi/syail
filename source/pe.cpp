@@ -56,10 +56,11 @@ namespace yail::detail
                 auto* patch = reinterpret_cast<std::uintptr_t*>(local_image + block->VirtualAddress + (*info & 0xFFF));
                 *patch += delta;
             }
-            block = reinterpret_cast<IMAGE_BASE_RELOCATION*>(reinterpret_cast<std::uint8_t*>(block) + block->SizeOfBlock);
+            block = reinterpret_cast<IMAGE_BASE_RELOCATION*>(reinterpret_cast<std::uint8_t*>(block)
+                                                             + block->SizeOfBlock);
         }
 
         nt_headers->OptionalHeader.ImageBase = target_base;
         return true;
     }
-}
+} // namespace yail::detail

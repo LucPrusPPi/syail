@@ -45,7 +45,8 @@ namespace yail::detail
                 return true;
 
             // ReSharper disable once CppUseStructuredBinding
-            const auto& relocation_directory = nt_headers->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC];
+            const auto& relocation_directory =
+                    nt_headers->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC];
             if (!relocation_directory.Size)
                 return false;
 
@@ -58,12 +59,12 @@ namespace yail::detail
                 {
                     if (*info >> 0x0C != IMAGE_REL_BASED_HIGHLOW)
                         continue;
-                    auto* patch = reinterpret_cast<std::uint32_t*>(
-                            local_image + block->VirtualAddress + (*info & 0xFFF));
+                    auto* patch =
+                            reinterpret_cast<std::uint32_t*>(local_image + block->VirtualAddress + (*info & 0xFFF));
                     *patch += static_cast<std::uint32_t>(delta);
                 }
                 block = reinterpret_cast<IMAGE_BASE_RELOCATION*>(reinterpret_cast<std::uint8_t*>(block)
-                                                                  + block->SizeOfBlock);
+                                                                 + block->SizeOfBlock);
             }
 
             nt_headers->OptionalHeader.ImageBase = target_base;
@@ -75,10 +76,11 @@ namespace yail::detail
                                                             void* destination, const std::size_t size)
         {
             SIZE_T bytes_read = 0;
-            if (!ReadProcessMemory(process_handle, reinterpret_cast<const void*>(address), destination, size, &bytes_read)
+            if (!ReadProcessMemory(process_handle, reinterpret_cast<const void*>(address), destination, size,
+                                   &bytes_read)
                 || bytes_read != size)
-                return std::unexpected(std::format("Failed to read WOW64 process memory at 0x{:x} (error {})",
-                                                   address, GetLastError()));
+                return std::unexpected(std::format("Failed to read WOW64 process memory at 0x{:x} (error {})", address,
+                                                   GetLastError()));
             return {};
         }
 
@@ -94,16 +96,18 @@ namespace yail::detail
         {
             Wow64RemotePeHeaders headers{};
             if (const auto read = read_remote_memory(process_handle, module_base, &headers.dos_headers,
-                                                     sizeof(headers.dos_headers)); !read)
+                                                     sizeof(headers.dos_headers));
+                !read)
                 return std::unexpected(read.error());
 
             if (headers.dos_headers.e_magic != IMAGE_DOS_SIGNATURE || headers.dos_headers.e_lfanew < 0)
                 return std::unexpected("WOW64 module has invalid DOS headers");
 
-            const auto nt_address = static_cast<std::uintptr_t>(module_base)
-                                  + static_cast<std::uint32_t>(headers.dos_headers.e_lfanew);
-            if (const auto read = read_remote_memory(process_handle, nt_address, &headers.nt_headers,
-                                                     sizeof(headers.nt_headers)); !read)
+            const auto nt_address =
+                    static_cast<std::uintptr_t>(module_base) + static_cast<std::uint32_t>(headers.dos_headers.e_lfanew);
+            if (const auto read =
+                        read_remote_memory(process_handle, nt_address, &headers.nt_headers, sizeof(headers.nt_headers));
+                !read)
                 return std::unexpected(read.error());
 
             if (headers.nt_headers.Signature != IMAGE_NT_SIGNATURE
@@ -115,7 +119,7 @@ namespace yail::detail
 
         [[nodiscard]]
         std::expected<std::uint32_t, std::string> find_wow64_module_base(const DWORD process_id,
-                                                                        const std::string_view module_name)
+                                                                         const std::string_view module_name)
         {
             UniqueHandle snapshot;
             while (true)
@@ -151,11 +155,11 @@ namespace yail::detail
             return std::unexpected(std::format("Failed to find {} in WOW64 target", module_name));
         }
 
-        template <typename T>
+        template<typename T>
         [[nodiscard]]
         std::expected<std::span<const T>, std::string> get_export_table(const std::vector<std::uint8_t>& export_data,
-                                                                       const DWORD export_rva, const DWORD table_rva,
-                                                                       const std::size_t count)
+                                                                        const DWORD export_rva, const DWORD table_rva,
+                                                                        const std::size_t count)
         {
             if (table_rva < export_rva)
                 return std::unexpected("WOW64 module has an invalid export table RVA");
@@ -167,7 +171,7 @@ namespace yail::detail
 
         [[nodiscard]]
         std::expected<std::string_view, std::string> get_export_string(const std::vector<std::uint8_t>& export_data,
-                                                                      const DWORD export_rva, const DWORD string_rva)
+                                                                       const DWORD export_rva, const DWORD string_rva)
         {
             if (string_rva < export_rva)
                 return std::unexpected("WOW64 module has an invalid export string RVA");
@@ -184,10 +188,11 @@ namespace yail::detail
         }
 
         [[nodiscard]]
-        std::expected<std::uint32_t, std::string> resolve_wow64_export(
-                const HANDLE process_handle, const DWORD process_id, const std::string_view module_name,
-                const std::string_view export_name, const std::optional<DWORD> export_ordinal = std::nullopt,
-                const std::size_t recursion_depth = 0)
+        std::expected<std::uint32_t, std::string>
+        resolve_wow64_export(const HANDLE process_handle, const DWORD process_id, const std::string_view module_name,
+                             const std::string_view export_name,
+                             const std::optional<DWORD> export_ordinal = std::nullopt,
+                             const std::size_t recursion_depth = 0)
         {
             if (recursion_depth > 8)
                 return std::unexpected("WOW64 forwarded export recursion limit exceeded");
@@ -205,8 +210,10 @@ namespace yail::detail
                 return std::unexpected(std::format("{} has no WOW64 export directory", module_name));
 
             std::vector<std::uint8_t> export_data(export_directory_data.Size);
-            if (const auto read = read_remote_memory(process_handle, *module_base + export_directory_data.VirtualAddress,
-                                                     export_data.data(), export_data.size()); !read)
+            if (const auto read =
+                        read_remote_memory(process_handle, *module_base + export_directory_data.VirtualAddress,
+                                           export_data.data(), export_data.size());
+                !read)
                 return std::unexpected(read.error());
             if (export_data.size() < sizeof(IMAGE_EXPORT_DIRECTORY))
                 return std::unexpected(std::format("{} has an invalid WOW64 export directory", module_name));
@@ -222,14 +229,14 @@ namespace yail::detail
             }
             else
             {
-                const auto names = get_export_table<DWORD>(export_data, export_directory_data.VirtualAddress,
-                                                           export_directory.AddressOfNames,
-                                                           export_directory.NumberOfNames);
+                const auto names =
+                        get_export_table<DWORD>(export_data, export_directory_data.VirtualAddress,
+                                                export_directory.AddressOfNames, export_directory.NumberOfNames);
                 if (!names)
                     return std::unexpected(names.error());
-                const auto ordinals = get_export_table<WORD>(export_data, export_directory_data.VirtualAddress,
-                                                             export_directory.AddressOfNameOrdinals,
-                                                             export_directory.NumberOfNames);
+                const auto ordinals =
+                        get_export_table<WORD>(export_data, export_directory_data.VirtualAddress,
+                                               export_directory.AddressOfNameOrdinals, export_directory.NumberOfNames);
                 if (!ordinals)
                     return std::unexpected(ordinals.error());
 
@@ -249,18 +256,21 @@ namespace yail::detail
             if (!function_index || *function_index >= export_directory.NumberOfFunctions)
                 return std::unexpected(std::format("{} does not export {}", module_name, export_name));
 
-            const auto functions = get_export_table<DWORD>(export_data, export_directory_data.VirtualAddress,
-                                                           export_directory.AddressOfFunctions,
-                                                           export_directory.NumberOfFunctions);
+            const auto functions =
+                    get_export_table<DWORD>(export_data, export_directory_data.VirtualAddress,
+                                            export_directory.AddressOfFunctions, export_directory.NumberOfFunctions);
             if (!functions)
                 return std::unexpected(functions.error());
             const DWORD function_rva = (*functions)[*function_index];
             if (function_rva >= export_directory_data.VirtualAddress
                 && function_rva - export_directory_data.VirtualAddress < export_directory_data.Size)
             {
-                const auto forwarder = get_export_string(export_data, export_directory_data.VirtualAddress, function_rva);
+                const auto forwarder =
+                        get_export_string(export_data, export_directory_data.VirtualAddress, function_rva);
+
                 if (!forwarder)
                     return std::unexpected(forwarder.error());
+
                 const auto separator = forwarder->find('.');
                 if (separator == std::string_view::npos)
                     return std::unexpected(std::format("Invalid WOW64 forwarded export {}", *forwarder));
@@ -271,9 +281,9 @@ namespace yail::detail
                 if (forwarded_symbol.starts_with('#'))
                 {
                     DWORD forwarded_ordinal = 0;
-                    const auto [ptr, error] = std::from_chars(forwarded_symbol.data() + 1,
-                                                              forwarded_symbol.data() + forwarded_symbol.size(),
-                                                              forwarded_ordinal);
+                    const auto [ptr, error] =
+                            std::from_chars(forwarded_symbol.data() + 1,
+                                            forwarded_symbol.data() + forwarded_symbol.size(), forwarded_ordinal);
                     if (error != std::errc{} || ptr != forwarded_symbol.data() + forwarded_symbol.size())
                         return std::unexpected(std::format("Invalid WOW64 forwarded export {}", *forwarder));
                     return resolve_wow64_export(process_handle, process_id, forwarded_module, {}, forwarded_ordinal,
@@ -284,15 +294,16 @@ namespace yail::detail
             }
 
             if (function_rva > std::numeric_limits<std::uint32_t>::max() - *module_base)
-                return std::unexpected(std::format("{} export {} is outside the WOW64 address range",
-                                                   module_name, export_name));
+                return std::unexpected(
+                        std::format("{} export {} is outside the WOW64 address range", module_name, export_name));
             return *module_base + function_rva;
         }
 
         [[nodiscard]]
-        std::expected<std::uint32_t, std::string> find_wow64_internal_function(
-                const HANDLE process_handle, const DWORD process_id, const std::string_view function_name,
-                const std::span<const std::string_view> signatures)
+        std::expected<std::uint32_t, std::string>
+        find_wow64_internal_function(const HANDLE process_handle, const DWORD process_id,
+                                     const std::string_view function_name,
+                                     const std::span<const std::string_view> signatures)
         {
             const auto module_base = find_wow64_module_base(process_id, "ntdll.dll");
             if (!module_base)
@@ -303,24 +314,28 @@ namespace yail::detail
 
             std::vector<IMAGE_SECTION_HEADER> sections(headers->nt_headers.FileHeader.NumberOfSections);
             const auto section_headers_address = static_cast<std::uintptr_t>(*module_base)
-                                               + static_cast<std::uint32_t>(headers->dos_headers.e_lfanew)
-                                               + sizeof(DWORD) + sizeof(IMAGE_FILE_HEADER)
-                                               + headers->nt_headers.FileHeader.SizeOfOptionalHeader;
+                                                 + static_cast<std::uint32_t>(headers->dos_headers.e_lfanew)
+                                                 + sizeof(DWORD) + sizeof(IMAGE_FILE_HEADER)
+                                                 + headers->nt_headers.FileHeader.SizeOfOptionalHeader;
             if (const auto read = read_remote_memory(process_handle, section_headers_address, sections.data(),
-                                                     sections.size() * sizeof(IMAGE_SECTION_HEADER)); !read)
+                                                     sections.size() * sizeof(IMAGE_SECTION_HEADER));
+                !read)
                 return std::unexpected(read.error());
 
             constexpr std::array<std::uint8_t, 5> text_name{'.', 't', 'e', 'x', 't'};
-            const auto section = std::ranges::find_if(sections, [&](const IMAGE_SECTION_HEADER& candidate)
-            {
-                return std::equal(text_name.begin(), text_name.end(), candidate.Name);
-            });
+            const auto section =
+                    std::ranges::find_if(sections,
+                                         [&](const IMAGE_SECTION_HEADER& candidate)
+                                         {
+                                             return std::equal(text_name.begin(), text_name.end(), candidate.Name);
+                                         });
             if (section == sections.end() || !section->Misc.VirtualSize)
                 return std::unexpected("Failed to find .text in WOW64 ntdll.dll");
 
             std::vector<std::uint8_t> section_data(section->Misc.VirtualSize);
             if (const auto read = read_remote_memory(process_handle, *module_base + section->VirtualAddress,
-                                                     section_data.data(), section_data.size()); !read)
+                                                     section_data.data(), section_data.size());
+                !read)
                 return std::unexpected(read.error());
 
             auto* const section_begin = reinterpret_cast<std::byte*>(section_data.data());
@@ -329,16 +344,16 @@ namespace yail::detail
             {
                 const auto match = omath::PatternScanner::scan_for_pattern(section_begin, section_end, signature);
                 if (match != section_end)
-                    return *module_base + section->VirtualAddress
-                         + static_cast<std::uint32_t>(match - section_begin);
+                    return *module_base + section->VirtualAddress + static_cast<std::uint32_t>(match - section_begin);
             }
 
             return std::unexpected(std::format("Failed to find {} in WOW64 ntdll.dll", function_name));
         }
     } // namespace
 
-    std::expected<std::uintptr_t, std::string> manual_map_injection_into_wow64_process(
-            const std::span<const std::uint8_t>& raw_pe, const std::uintptr_t process_id)
+    std::expected<std::uintptr_t, std::string>
+    manual_map_injection_into_wow64_process(const std::span<const std::uint8_t>& raw_pe,
+                                            const std::uintptr_t process_id)
     {
         if (const auto architecture = validate_target_machine(process_id, IMAGE_FILE_MACHINE_I386); !architecture)
             return std::unexpected(architecture.error());
@@ -352,9 +367,8 @@ namespace yail::detail
         const auto* dos_headers = reinterpret_cast<const IMAGE_DOS_HEADER*>(raw_pe.data());
         const auto* nt_headers = reinterpret_cast<const IMAGE_NT_HEADERS32*>(raw_pe.data() + dos_headers->e_lfanew);
         const std::size_t image_size = nt_headers->OptionalHeader.SizeOfImage;
-        auto* remote_image = static_cast<std::uint8_t*>(
-                VirtualAllocEx(process_handle.get(), nullptr, image_size, MEM_COMMIT | MEM_RESERVE,
-                               PAGE_EXECUTE_READWRITE));
+        auto* remote_image = static_cast<std::uint8_t*>(VirtualAllocEx(
+                process_handle.get(), nullptr, image_size, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE));
         if (!remote_image)
             return std::unexpected(std::format("VirtualAllocEx failed for WOW64 image (error {})", GetLastError()));
 
@@ -422,17 +436,16 @@ namespace yail::detail
                 "8B FF 55 8B EC 51 51 53 56 57 8B 7D ? 8D 45",
                 "8B FF 55 8B EC 53 56 57 8B 7D ? 8D 45",
         };
-        if (const auto inverted_fn = find_wow64_internal_function(
-                    process_handle.get(), static_cast<DWORD>(process_id), "RtlInsertInvertedFunctionTable",
-                    rtl_insert_inverted_function_table_signatures))
+        if (const auto inverted_fn = find_wow64_internal_function(process_handle.get(), static_cast<DWORD>(process_id),
+                                                                  "RtlInsertInvertedFunctionTable",
+                                                                  rtl_insert_inverted_function_table_signatures))
             loader_data.fn_rtl_insert_inverted_function_table = *inverted_fn;
 
         constexpr std::size_t data_aligned = (sizeof(Wow64RemoteLoaderData) + 0xF) & ~0xF;
         const auto shellcode = yail::detail::x86_remote_shellcode();
         const std::size_t total_shellcode = data_aligned + shellcode.size();
-        auto* remote_shellcode = static_cast<std::uint8_t*>(
-                VirtualAllocEx(process_handle.get(), nullptr, total_shellcode, MEM_COMMIT | MEM_RESERVE,
-                               PAGE_EXECUTE_READWRITE));
+        auto* remote_shellcode = static_cast<std::uint8_t*>(VirtualAllocEx(
+                process_handle.get(), nullptr, total_shellcode, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE));
         if (!remote_shellcode)
             return fail_image(std::format("VirtualAllocEx failed for WOW64 shellcode (error {})", GetLastError()));
 
@@ -450,16 +463,16 @@ namespace yail::detail
         std::copy(shellcode.begin(), shellcode.end(), shellcode_page.data() + data_aligned);
         if (!WriteProcessMemory(process_handle.get(), remote_shellcode, shellcode_page.data(), shellcode_page.size(),
                                 nullptr))
-            return fail_shellcode(std::format("WriteProcessMemory failed for WOW64 shellcode (error {})",
-                                              GetLastError()));
+            return fail_shellcode(
+                    std::format("WriteProcessMemory failed for WOW64 shellcode (error {})", GetLastError()));
 
-        const UniqueHandle thread_handle{CreateRemoteThread(
-                process_handle.get(), nullptr, 0,
-                reinterpret_cast<LPTHREAD_START_ROUTINE>(remote_shellcode + data_aligned),
-                remote_shellcode, 0, nullptr)};
+        const UniqueHandle thread_handle{
+                CreateRemoteThread(process_handle.get(), nullptr, 0,
+                                   reinterpret_cast<LPTHREAD_START_ROUTINE>(remote_shellcode + data_aligned),
+                                   remote_shellcode, 0, nullptr)};
         if (!thread_handle)
-            return fail_shellcode(std::format("CreateRemoteThread failed for WOW64 shellcode (error {})",
-                                              GetLastError()));
+            return fail_shellcode(
+                    std::format("CreateRemoteThread failed for WOW64 shellcode (error {})", GetLastError()));
 
         if (WaitForSingleObject(thread_handle.get(), INFINITE) == WAIT_FAILED)
             return fail_shellcode(std::format("Failed to wait for WOW64 shellcode (error {})", GetLastError()));
@@ -472,5 +485,5 @@ namespace yail::detail
             return fail_image(std::format("WOW64 remote shellcode failed (exit code {})", exit_code));
         return remote_image_address;
     }
-}
+} // namespace yail::detail
 #endif
