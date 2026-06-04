@@ -33,14 +33,6 @@ namespace yail::detail
         using LdrpHandleTlsDataFn = NTSTATUS(__fastcall*)(LdrDataTableEntryFull*);
         using RtlInsertInvertedFunctionTableFn = void(__fastcall*)(PVOID image_base, ULONG size_of_image);
 #endif
-
-        template <typename T>
-        [[nodiscard]]
-        void* erase_function_pointer(T function)
-        {
-            return reinterpret_cast<void*>(function);
-        }
-
         // The shellcode reference implementation used for regeneration lives in tools/generate_shellcode.cpp.
     } // namespace
 
@@ -62,7 +54,7 @@ namespace yail::detail
         for (const auto* sig : signatures)
         {
             if (const auto result = omath::PePatternScanner::scan_for_pattern_in_loaded_module(ntdll, sig))
-                return erase_function_pointer(reinterpret_cast<LdrpHandleTlsDataFn>(result.value()));
+                return reinterpret_cast<void*>(result.value());
         }
 
         return std::unexpected("Failed to find LdrpHandleTlsData");
@@ -87,7 +79,7 @@ namespace yail::detail
         for (const auto* sig : signatures)
         {
             if (const auto result = omath::PePatternScanner::scan_for_pattern_in_loaded_module(ntdll, sig))
-                return erase_function_pointer(reinterpret_cast<RtlInsertInvertedFunctionTableFn>(result.value()));
+                return reinterpret_cast<void*>(result.value());
         }
 
         return std::unexpected("Failed to find RtlInsertInvertedFunctionTable");
