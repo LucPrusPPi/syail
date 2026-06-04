@@ -428,7 +428,8 @@ namespace yail::detail
             loader_data.fn_rtl_insert_inverted_function_table = *inverted_fn;
 
         constexpr std::size_t data_aligned = (sizeof(Wow64RemoteLoaderData) + 0xF) & ~0xF;
-        constexpr std::size_t total_shellcode = data_aligned + yail::detail::x86_remote_shellcode.size();
+        const auto shellcode = yail::detail::x86_remote_shellcode();
+        const std::size_t total_shellcode = data_aligned + shellcode.size();
         auto* remote_shellcode = static_cast<std::uint8_t*>(
                 VirtualAllocEx(process_handle.get(), nullptr, total_shellcode, MEM_COMMIT | MEM_RESERVE,
                                PAGE_EXECUTE_READWRITE));
@@ -444,10 +445,9 @@ namespace yail::detail
         if (reinterpret_cast<std::uintptr_t>(remote_shellcode) > std::numeric_limits<std::uint32_t>::max())
             return fail_shellcode("WOW64 shellcode allocation is above the 32-bit address range");
 
-        std::array<std::uint8_t, total_shellcode> shellcode_page{};
+        std::vector<std::uint8_t> shellcode_page(total_shellcode);
         std::copy_n(reinterpret_cast<const std::uint8_t*>(&loader_data), sizeof(loader_data), shellcode_page.data());
-        std::copy(yail::detail::x86_remote_shellcode.begin(), yail::detail::x86_remote_shellcode.end(),
-                  shellcode_page.data() + data_aligned);
+        std::copy(shellcode.begin(), shellcode.end(), shellcode_page.data() + data_aligned);
         if (!WriteProcessMemory(process_handle.get(), remote_shellcode, shellcode_page.data(), shellcode_page.size(),
                                 nullptr))
             return fail_shellcode(std::format("WriteProcessMemory failed for WOW64 shellcode (error {})",

@@ -156,10 +156,11 @@ Patterns are versioned per architecture and have been verified on **Windows 11 2
 
 On modern x86 ntdll, both functions use `__fastcall` (args in `ECX`/`EDX`) despite their legacy `_Name@N` symbol decoration — the typedef and call sites in the source reflect that. If you target an older x86 Windows where these are still `__stdcall`, you'll need to swap the typedef to `NTAPI*`.
 
-The shellcode implementation is kept as a disabled reference block in `source/native_loader.cpp`. After changing it, temporarily enable the block, rebuild both `loader` targets, refresh the embedded loaders, then disable the block again:
+The shellcode implementation used for generation lives in `tools/generate_shellcode.cpp`. After changing it, rebuild both `generate_shellcode` targets and refresh `source/shellcode.cpp`:
 
 ```bash
-python tools/generate_shellcode.py cmake-build/build/windows-release-vcpkg/loader.exe cmake-build/build/windows-release-vcpkg-x86/loader.exe include/yail/detail/shellcode.hpp
+cmake-build/build/windows-release-vcpkg/generate_shellcode.exe
+cmake-build/build/windows-release-vcpkg-x86/generate_shellcode.exe
 ```
 
 ## License

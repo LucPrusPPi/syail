@@ -24,6 +24,11 @@ target_compile_options(${PROJECT_NAME} PRIVATE
 find_package(omath CONFIG REQUIRED)
 target_link_libraries(${PROJECT_NAME} PRIVATE omath::omath)
 
+add_executable(generate_shellcode tools/generate_shellcode.cpp)
+set_target_properties(generate_shellcode PROPERTIES CXX_STANDARD 23)
+target_compile_definitions(generate_shellcode PRIVATE YAIL_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
+find_package(zydis CONFIG REQUIRED)
+target_link_libraries(generate_shellcode PRIVATE Zydis::Zydis)
 
 option(YAIL_BUILD_EXAMPLES "Build yail examples" ON)
 

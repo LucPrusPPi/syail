@@ -96,12 +96,12 @@ namespace yail
 
         // Prepare shellcode page: [RemoteLoaderData | padding | shellcode bytes]
 #ifdef _WIN64
-        constexpr const auto& native_remote_shellcode = yail::detail::x64_remote_shellcode;
+        const auto native_remote_shellcode = yail::detail::x64_remote_shellcode();
 #else
-        constexpr const auto& native_remote_shellcode = yail::detail::x86_remote_shellcode;
+        const auto native_remote_shellcode = yail::detail::x86_remote_shellcode();
 #endif
         constexpr std::size_t data_aligned = (sizeof(detail::RemoteLoaderData) + 0xF) & ~0xF;
-        constexpr std::size_t total_shellcode = data_aligned + native_remote_shellcode.size();
+        const std::size_t total_shellcode = data_aligned + native_remote_shellcode.size();
 
         auto* remote_shellcode = static_cast<std::uint8_t*>(
                 VirtualAllocEx(process_handle, nullptr, total_shellcode, MEM_COMMIT | MEM_RESERVE,
