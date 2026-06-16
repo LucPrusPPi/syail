@@ -16,7 +16,7 @@
 #include <vector>
 #include <yail/detail/process.hpp>
 #include <yail/detail/shellcode.hpp>
-#include <omath/utility/pattern_scan.hpp>
+#include <yail/detail/pattern_scan.hpp>
 
 namespace yail::detail
 {
@@ -338,13 +338,12 @@ namespace yail::detail
                 !read)
                 return std::unexpected(read.error());
 
-            auto* const section_begin = reinterpret_cast<std::byte*>(section_data.data());
-            auto* const section_end = section_begin + section_data.size();
+            auto* const section_begin = section_data.data();
             for (const auto signature : signatures)
             {
-                const auto match = omath::PatternScanner::scan_for_pattern(section_begin, section_end, signature);
-                if (match != section_end)
-                    return *module_base + section->VirtualAddress + static_cast<std::uint32_t>(match - section_begin);
+                const auto match = scan_pattern_dynamic({section_begin, section_data.size()}, signature);
+                if (match)
+                    return *module_base + section->VirtualAddress + static_cast<std::uint32_t>(*match - section_begin);
             }
 
             return std::unexpected(std::format("Failed to find {} in WOW64 ntdll.dll", function_name));

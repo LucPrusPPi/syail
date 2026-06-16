@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.28)
 project(yail VERSION 0.0.1 LANGUAGES CXX)
 
+add_compile_definitions(NOMINMAX)
+
 file(GLOB_RECURSE YAIL_HEADERS "include/*.hpp")
 file(GLOB_RECURSE YAIL_SOURCES "source/*.cpp")
 
@@ -20,9 +22,6 @@ target_compile_options(${PROJECT_NAME} PRIVATE
     $<$<CXX_COMPILER_ID:MSVC>:/W4 /WX>
     $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic -Werror>
 )
-
-find_package(omath CONFIG REQUIRED)
-target_link_libraries(${PROJECT_NAME} PRIVATE omath::omath)
 
 add_executable(generate_shellcode tools/generate_shellcode.cpp)
 set_target_properties(generate_shellcode PROPERTIES CXX_STANDARD 23)

@@ -1,7 +1,7 @@
 #include <yail/detail/native_loader.hpp>
 #include <winternl.h>
 #include <array>
-#include <omath/utility/pe_pattern_scan.hpp>
+#include <yail/detail/pattern_scan.hpp>
 
 namespace yail::detail
 {
@@ -53,8 +53,8 @@ namespace yail::detail
         const auto* ntdll = GetModuleHandleA("ntdll.dll");
         for (const auto* sig : signatures)
         {
-            if (const auto result = omath::PePatternScanner::scan_for_pattern_in_loaded_module(ntdll, sig))
-                return reinterpret_cast<void*>(result.value());
+            if (const auto result = scan_in_module(ntdll, sig))
+                return const_cast<void*>(reinterpret_cast<const void*>(result.value()));
         }
 
         return std::unexpected("Failed to find LdrpHandleTlsData");
@@ -78,8 +78,8 @@ namespace yail::detail
         const auto* ntdll = GetModuleHandleA("ntdll.dll");
         for (const auto* sig : signatures)
         {
-            if (const auto result = omath::PePatternScanner::scan_for_pattern_in_loaded_module(ntdll, sig))
-                return reinterpret_cast<void*>(result.value());
+            if (const auto result = scan_in_module(ntdll, sig))
+                return const_cast<void*>(reinterpret_cast<const void*>(result.value()));
         }
 
         return std::unexpected("Failed to find RtlInsertInvertedFunctionTable");
