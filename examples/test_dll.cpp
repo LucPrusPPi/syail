@@ -550,34 +550,79 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
     printf("[test_dll] DllMain DLL_PROCESS_ATTACH\n");
     printf("  module base: %p\n", hModule);
     printf("========================================\n\n");
+    fflush(stdout);
 
+    printf("[test_dll] Running TLS callback test...\n"); fflush(stdout);
     Report("TLS callback fired",        g_tlsCallbackFired);
+    
+    printf("[test_dll] Running Static TLS test...\n"); fflush(stdout);
     Report("Static TLS read/write",     TestStaticTLS());
+    
+    printf("[test_dll] Running TLS per-thread test...\n"); fflush(stdout);
     Report("Static TLS per-thread",     TestTLSPerThread());
+    
+    printf("[test_dll] Running SEH access violation test...\n"); fflush(stdout);
     Report("SEH access violation",      TestSEH());
+    
+    printf("[test_dll] Running SEH divide by zero test...\n"); fflush(stdout);
     Report("SEH divide by zero",        TestSEHDivZero());
+    
+    printf("[test_dll] Running SEH nested test...\n"); fflush(stdout);
     Report("SEH nested",                TestSEHNested());
+    
+    printf("[test_dll] Running SEH filter test...\n"); fflush(stdout);
     Report("SEH filter continue_search",TestSEHFilter());
+    
+    printf("[test_dll] Running C++ exception int test...\n"); fflush(stdout);
     Report("C++ exception int",         TestCppExceptionInt());
+    
+    printf("[test_dll] Running C++ exception std::exception test...\n"); fflush(stdout);
     Report("C++ exception std::exception", TestCppExceptionStd());
+    
+    printf("[test_dll] Running C++ exception stack unwind test...\n"); fflush(stdout);
     Report("C++ exception stack unwind",TestCppExceptionUnwind());
+    
+    printf("[test_dll] Running C++ exception rethrow test...\n"); fflush(stdout);
     Report("C++ exception rethrow",     TestCppExceptionRethrow());
+    
+    printf("[test_dll] Running C++ exception indirect test...\n"); fflush(stdout);
     Report("C++ exception indirect",    TestCppExceptionIndirect());
+    
+    printf("[test_dll] Running Win32 API imports test...\n"); fflush(stdout);
     Report("Win32 API imports",         TestImports());
+    
+    printf("[test_dll] Running STL containers test...\n"); fflush(stdout);
     Report("STL containers/strings",    TestSTL());
+    
+    printf("[test_dll] Running Floating point test...\n"); fflush(stdout);
     Report("Floating point / math",     TestFloatingPoint());
+    
+    printf("[test_dll] Running VirtualAlloc/Free test...\n"); fflush(stdout);
     Report("VirtualAlloc/Free",         TestVirtualMemory());
+    
+    printf("[test_dll] Running Threading + mutex test...\n"); fflush(stdout);
     Report("Threading + mutex",         TestThreading());
+    
+    printf("[test_dll] Running Global constructors test...\n"); fflush(stdout);
     Report("Global constructors",       TestGlobalCtors());
-    Report("Vtable dispatch",           TestVTable());
-    Report("Vectored exception handler",TestVEH());
-    Report("Delay import DbgHelp",     TestDelayImportDbgHelp());
-    Report("Delay import Winmm",       TestDelayImportWinmm());
+    
+    printf("[test_dll] Running Relocations test...\n"); fflush(stdout);
+    Report("Relocations through vtable", TestVTable());
+    
+    printf("[test_dll] Running RaiseException + VEH test...\n"); fflush(stdout);
+    Report("RaiseException + VEH",      TestVEH());
+    
+    printf("[test_dll] Running Delay imports - DbgHelp test...\n"); fflush(stdout);
+    Report("Delay imports (dbghelp)",   TestDelayImportDbgHelp());
+    
+    printf("[test_dll] Running Delay imports - Winmm test...\n"); fflush(stdout);
+    Report("Delay imports (winmm)",     TestDelayImportWinmm());
+
+    printf("[test_dll] DllMain completed successfully!\n"); fflush(stdout);
 
     printf("\n========================================\n");
     printf("[test_dll] Results: %d/%d passed\n", g_passed, g_total);
     printf("========================================\n");
 
-    MessageBoxA(nullptr, "All tests have passed!", "Yey", MB_OK);
     return TRUE;
 }
