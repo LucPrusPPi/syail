@@ -1,8 +1,8 @@
 {
-  "name": "yail",
-  "version": "0.0.1",
+  "name": "syail",
+  "version": "0.0.2",
   "description": "Yet Another Injection Library",
-  "homepage": "https://github.com/orange-cpp/yail",
+  "homepage": "https://github.com/LucPrusPPi/syail",
   "license": "Zlib",
   "supports": "windows",
   "dependencies": [

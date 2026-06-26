@@ -1,11 +1,17 @@
-# YAIL CREDITS
+# CREDITS
 
-Thanks to everyone who made this possible, including:
+## Upstream
 
-- forentfraps helping with debugging
+syail is a fork of **yail** by Orange++:
 
-And a big hand to everyone else who has contributed over the past!
+- https://github.com/orange-cpp/yail
+- Contact noted upstream: `orange_github@proton.me`
 
-THANKS! <3
+## Upstream thanks (from yail)
 
-    -- Orange++ <orange_github@proton.me>
+- forentfraps - debugging help
+- Everyone else who contributed to yail
+
+## This fork
+
+Stealth syscall path (HWBP/VEH, indirect syscalls, stack spoofing, pattern scanner) maintained by LucPrusPPi / PPi Studio.
