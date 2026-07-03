@@ -1,1 +1,16 @@
 /cmake-build/
+/build/
+/out/
+/vcpkg_installed/
+
+# MSVC / CMake debris if generated in-tree
+*.ilk
+*.pdb
+*.obj
+*.idb
+*.tlog
+*.lastbuildstate
+CMakeCache.txt
+CMakeFiles/
+*.vcxproj.user
+.vs/
