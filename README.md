@@ -1,24 +1,49 @@
+# syail
+
+Stealth injection framework for Windows (x64/x86). Manual-map PE loader in C++23.
+
+Fork of [orange-cpp/yail](https://github.com/orange-cpp/yail) ("Yet Another Injection Library"). Same public mapping API, with a different process-touch path.
+
 ![banner](.github/banner.png)
-## Features
+
+## Diff vs upstream yail
+
+Kept from [yail](https://github.com/orange-cpp/yail):
+
+- Manual map of DLL/EXE (no `LoadLibrary` module list entry)
+- TLS, imports (static + delay), SEH/unwind registration
+- Inject by PID or process name, from file or raw bytes
+- `std::expected` API under `yail::`
+
+Added / changed in **syail**:
+
+- **HWBP + VEH syscall engine** - `NtOpenProcess`, `NtAllocateVirtualMemory`, `NtWriteVirtualMemory`, `NtProtectVirtualMemory`, `NtFreeVirtualMemory`, `NtCreateThreadEx` go through hardware breakpoints and a VEH handler instead of plain Win32/`ntdll` imports where wired
+- **Indirect syscalls** - SSN resolution with neighbor-stub walk when the primary stub looks hooked
+- **Stack spoofing** - return gadgets from runtime DLLs (`add rsp, …; ret` style) on the syscall path
+- **Header-only pattern scanner** - replaces heavier helper deps (no `omath`)
+
+If you only need a clean manual-map loader, use upstream. If you want the stealth syscall path, use this fork.
+
+## Features (shared with yail)
 
 - Manual PE mapping (no `LoadLibrary` traces)
-  - **x64** — full unwind table registration via `RtlInsertInvertedFunctionTable` (with `RtlAddFunctionTable` fallback)
-  - **x86** — SEH validation via `RtlInsertInvertedFunctionTable` (handles modern Win11 24H2 internal `__fastcall` convention)
-- Maps both **DLLs** and **EXEs** — auto-detected via `IMAGE_FILE_DLL`
-  - DLLs invoked as `DllMain(HMODULE, DLL_PROCESS_ATTACH, nullptr)`
-  - EXEs invoked as `int __cdecl mainCRTStartup(void)` — works with both `main`-style (console subsystem) and `WinMain`-style (GUI subsystem) entries
+  - **x64**: unwind table registration via `RtlInsertInvertedFunctionTable` (`RtlAddFunctionTable` fallback)
+  - **x86**: SEH validation via `RtlInsertInvertedFunctionTable` (Win11 24H2 `__fastcall` stubs)
+- Maps **DLLs** and **EXEs** (auto via `IMAGE_FILE_DLL`)
+  - DLLs: `DllMain(HMODULE, DLL_PROCESS_ATTACH, nullptr)`
+  - EXEs: `mainCRTStartup` / `WinMain` entry shapes
 - Static TLS via signature-scanned `LdrpHandleTlsData`
 - TLS callbacks (`.CRT$XLB`)
 - Static and delay-loaded imports
-- Exception handling (SEH/VEH/C++) compatible with manually-mapped images
-- Per-section memory protections (RX, RW, RO, RWX as declared)
+- Exception handling (SEH/VEH/C++) on mapped images
+- Per-section protections (RX, RW, RO, RWX)
 - Inject by process ID or process name
-- Load from file path or raw bytes in memory
-- Returns `std::expected<uintptr_t, std::string>` — no exceptions, clear error messages
+- Load from file path or raw bytes
+- `std::expected<uintptr_t, std::string>` (no thrown errors on the public API)
 
 ## Requirements
 
-- Windows 10 / 11 (signature scans target Windows 11 24H2 ntdll by default; older builds may need pattern updates)
+- Windows 10 / 11 (ntdll signatures verified on Windows 11 24H2; older builds may need pattern updates)
 - C++23 compiler (MSVC recommended)
 - CMake 3.28+
 - vcpkg
@@ -39,13 +64,15 @@ cmake --preset windows-debug-vcpkg-x86
 cmake --build cmake-build/build/windows-debug-vcpkg-x86
 ```
 
-Native injection requires matching bitness: an x86 build of yail injects x86 PEs into x86 (WOW64) processes, and an x64 build injects x64 PEs into x64 processes. An x64 build can also inject x86 PEs into x86 targets using its embedded x86 loader.
+Native injection needs matching bitness. An x64 build can also inject x86 PEs into WOW64 targets via the embedded x86 loader.
 
 Examples build by default. Disable with `-DYAIL_BUILD_EXAMPLES=OFF`.
 
+Do not commit `build/` or `cmake-build/` (see `.gitignore`).
+
 ## Usage
 
-### Inject a DLL into a process by name
+### Inject a DLL by process name
 
 ```cpp
 #include <yail/yail.hpp>
@@ -66,15 +93,16 @@ auto result = yail::manual_map_injection_from_file("my.dll", GetCurrentProcessId
 
 ### Inject an EXE
 
-Same API — auto-detection picks the right entry-point shape:
+Same API; entry shape is detected from the PE:
 
 ```cpp
 auto result = yail::manual_map_injection_from_file("my.exe", GetCurrentProcessId());
 ```
 
-EXE caveats (apply to both `main` and `WinMain` flavors):
-- When the EXE's entry returns, the CRT calls `exit()` → `ExitProcess`. That terminates the **host** process. If you need the host to survive, the injected EXE must avoid letting `main`/`WinMain` return — e.g. `ExitThread(0)` from the entry, like the bundled `test_exe`.
-- `GetModuleHandle(nullptr)` inside the injected EXE returns the **host** image base, not the mapped one. `WinMain`'s `hInstance` is correct (it comes from `__ImageBase`, which is relocated), but APIs that read `PEB->ImageBaseAddress` are not.
+EXE caveats:
+
+- If the EXE entry returns, CRT may call `exit()` / `ExitProcess` and kill the **host**. Keep the host alive with `ExitThread(0)` from the entry (see `test_exe`).
+- `GetModuleHandle(nullptr)` inside the mapped EXE is the **host** base. `WinMain`'s `hInstance` is correct (`__ImageBase`).
 
 ### Inject from raw bytes
 
@@ -83,23 +111,11 @@ std::vector<uint8_t> bytes = /* ... */;
 auto result = yail::manual_map_injection_from_raw(bytes, "target.exe");
 ```
 
-### Inject x86 from an x64 injector
-
-The normal APIs detect x86 payloads and use the embedded x86 loader automatically. No helper process is launched:
-
-```cpp
-auto result = yail::manual_map_injection_from_raw(bytes, "x86-target.exe");
-```
-
 ## API
 
 ```cpp
 namespace yail
 {
-    // Both functions accept DLLs and EXEs (matched by IMAGE_FILE_DLL).
-    // Native PE machine type must match the build. An x64 build also accepts
-    // I386 PEs when the target is a WOW64 process.
-
     std::expected<uintptr_t, std::string>
     manual_map_injection_from_file(std::string_view pe_path, std::uintptr_t process_id);
 
@@ -114,11 +130,9 @@ namespace yail
 }
 ```
 
-On success, returns the base address of the mapped image in the target process. On failure, returns a string describing the error.
+On success: base address in the target. That address is **not** a loader `HMODULE` - do not pass it to `FreeLibrary`.
 
-The returned address is not a loader-managed `HMODULE`. A DLL mapped by yail is absent from the Windows loader module list, so passing that address to `FreeLibrary` or `FreeLibraryAndExitThread` is invalid. yail does not currently provide manual unmapping. A mapped DLL must stop its work and return, or be loaded with `LoadLibrary` when OS-managed unload is required.
-
-## CMake Integration
+## CMake
 
 ```cmake
 find_package(yail CONFIG REQUIRED)
@@ -127,42 +141,33 @@ target_link_libraries(my_target PRIVATE yail::yail)
 
 ## Examples
 
-The `examples/` directory contains:
-
-| Target          | Purpose                                                                                |
-|-----------------|----------------------------------------------------------------------------------------|
-| `loader`        | Manual-maps a PE (DLL or EXE) into the current process. `loader.exe <path>`.           |
-| `remote_loader` | Manual-maps into a target process by name. `remote_loader.exe <dll> <process.exe>`.    |
-| `test_dll`      | Self-test DLL exercising TLS, SEH, C++ exceptions, delay imports, threading, vtables.  |
-| `test_exe`      | Same battery of tests, but as a console-subsystem EXE entered via `main()`.            |
-| `test_winexe`   | GUI-subsystem EXE entered via `WinMain` — verifies `hInstance`, `lpCmdLine`, `nShowCmd`. |
-
-Quick verification on either bitness:
+| Target | Purpose |
+|--------|---------|
+| `loader` | Map a PE into the current process: `loader.exe <path>` |
+| `remote_loader` | Map into another process: `remote_loader.exe <dll> <process.exe>` |
+| `test_dll` | Self-test DLL (TLS, SEH, exceptions, delay imports, …) |
+| `test_exe` | Console EXE via `main()` |
+| `test_winexe` | GUI EXE via `WinMain` |
 
 ```bash
-loader.exe test_dll.dll       # 22 tests
-loader.exe test_exe.exe       # 16 tests + ExitThread keeps the loader alive
-loader.exe test_winexe.exe    # WinMain path + GUI subsystem checks
+loader.exe test_dll.dll
+loader.exe test_exe.exe
+loader.exe test_winexe.exe
 ```
 
 ## Signature notes
 
-The library locates two non-exported ntdll routines by byte signatures:
+Non-exported ntdll helpers are found by byte patterns:
 
-- `LdrpHandleTlsData` — used to register static TLS for the mapped image
-- `RtlInsertInvertedFunctionTable` — used to make the image's exception/SEH handlers visible to the OS exception dispatcher
+- `LdrpHandleTlsData` - static TLS registration
+- `RtlInsertInvertedFunctionTable` - exception/SEH visibility
 
-Patterns are versioned per architecture and have been verified on **Windows 11 24H2**. Older Windows builds may require updated signatures — locate the function in WinDbg (`x ntdll!LdrpHandleTlsData`, `uf <addr>`), take ~16 unique leading bytes, and add the wildcarded pattern to the corresponding signature array in `source/native_loader.cpp` or `source/wow64.cpp`.
+Verified on **Windows 11 24H2**. Older builds: dump the function in WinDbg, take ~16 unique bytes, update patterns in `source/native_loader.cpp` / `source/wow64.cpp`.
 
-On modern x86 ntdll, both functions use `__fastcall` (args in `ECX`/`EDX`) despite their legacy `_Name@N` symbol decoration — the typedef and call sites in the source reflect that. If you target an older x86 Windows where these are still `__stdcall`, you'll need to swap the typedef to `NTAPI*`.
-
-The shellcode implementation used for generation lives in `tools/generate_shellcode.cpp`. After changing it, rebuild both `generate_shellcode` targets and refresh `source/shellcode.cpp`:
-
-```bash
-cmake-build/build/windows-release-vcpkg/generate_shellcode.exe
-cmake-build/build/windows-release-vcpkg-x86/generate_shellcode.exe
-```
+Shellcode generator: `tools/generate_shellcode.cpp`. After edits, rebuild and refresh `source/shellcode.cpp`.
 
 ## License
 
-[Zlib](LICENSE)
+[Zlib](LICENSE) (same as upstream yail)
+
+Upstream: [orange-cpp/yail](https://github.com/orange-cpp/yail). See [CREDITS.md](CREDITS.md).
